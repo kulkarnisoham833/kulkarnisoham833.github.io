@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Cannonball</title>
+</head>
+
+<body>
+
+    <canvas id="myCanvas" style="border:2px solid"></canvas>
+
+    <script>
+        // canvas setup -------------------------------------------------------
+
+        var canvas = document.getElementById("myCanvas");
+        var c = canvas.getContext("2d");
+
+        canvas.width = window.innerWidth - 20;
+        canvas.height = window.innerHeight - 100;
+
+        var simMinWidth = 20.0;
+        var cScale = Math.min(canvas.width, canvas.height) / simMinWidth;
+        var simWidth = canvas.width / cScale;
+        var simHeight = canvas.height / cScale;
+
+        function cX(pos) {
+            return pos.x * cScale;
+        }
+
+        function cY(pos) {
+            return canvas.height - pos.y * cScale;
+        }
+
+        // scene -------------------------------------------------------
+
+        var gravity = { x: 0.0, y: -10.0 };
+        var timeStep = 1.0 / 60.0;
+
+        var balls = []; // Array to hold multiple balls
+
+        // Variables for line drawing
+        var lineStart = null;
+        var lineEnd = null;
+
+        // drawing -------------------------------------------------------
+
+        function draw() {
+            c.clearRect(0, 0, canvas.width, canvas.height);
+
+            c.fillStyle = "#FF0000";
+
+            balls.forEach(function (ball) {
+                c.beginPath();
+                c.arc(
+                    cX(ball.pos), cY(ball.pos), cScale * ball.radius, 0.0, 2.0 * Math.PI);
+                c.closePath();
+                c.fill();
+            });
+
+            // Draw the line if lineStart and lineEnd are set
+            if (lineStart && lineEnd) {
+                c.beginPath();
+                c.moveTo(lineStart.x, lineStart.y);
+                c.lineTo(lineEnd.x, lineEnd.y);
+                c.stroke();
+            }
+        }
+
+        // simulation ----------------------------------------------------
+
+        function simulate() {
+            balls.forEach(function (ball) {
+                ball.vel.x += gravity.x * timeStep;
+                ball.vel.y += gravity.y * timeStep;
+                ball.pos.x += ball.vel.x * timeStep;
+                ball.pos.y += ball.vel.y * timeStep;
+
+                if (ball.pos.x < 0.0) {
+                    ball.pos.x = 0.0;
+                    ball.vel.x = -ball.vel.x;
+                }
+                if (ball.pos.x > simWidth) {
+                    ball.pos.x = simWidth;
+                    ball.vel.x = -ball.vel.x;
+                }
+                if (ball.pos.y < 0.0) {
+                    ball.pos.y = 0.0;
+                    ball.vel.y = -ball.vel.y;
+                }
+            });
+        }
+
+        // make browser to call us repeatedly -----------------------------------
+
+        function update() {
+            simulate();
+            draw();
+            requestAnimationFrame(update);
+        }
+
+        update();
+
+        // Event listener to drop a ball when clicking on the canvas
+        canvas.addEventListener('click', function (event) {
+            var rect = canvas.getBoundingClientRect();
+            var mouseX = event.clientX - rect.left;
+            var mouseY = event.clientY - rect.top;
+            var ball = {
+                radius: 0.2,
+                pos: { x: mouseX / cScale, y: (canvas.height - mouseY) / cScale },
+                vel: { x: 0.0, y: 0.0 } // Initial velocity can be adjusted as needed
+            };
+            balls.push(ball);
+        });
+
+        // Event listeners for drawing the launch line
+        canvas.addEventListener('mousedown', function (event) {
+            var rect = canvas.getBoundingClientRect();
+            lineStart = { x: event.clientX - rect.left, y: event.clientY - rect.top };
+            canvas.addEventListener('mousemove', updateLineEnd);
+            canvas.addEventListener('mouseup', launchBall);
+        });
+
+        function updateLineEnd(event) {
+            var rect = canvas.getBoundingClientRect();
+            lineEnd = { x: event.clientX - rect.left, y: event.clientY - rect.top };
+            draw();
+        }
+
+        function launchBall() {
+            canvas.removeEventListener('mousemove', updateLineEnd);
+            canvas.removeEventListener('mouseup', launchBall);
+
+            // Calculate velocity based on the line drawn
+            var velocityX = (lineEnd.x - lineStart.x) / cScale;
+            var velocityY = (lineEnd.y - lineStart.y) / cScale;
+
+            // Adjust the trajectory correctly
+            velocityY = -velocityY;
+
+            // Create a new ball at the end of the line with the calculated velocity
+            var ball = {
+                radius: 0.2,
+                pos: { x: lineEnd.x / cScale, y: (canvas.height - lineEnd.y) / cScale },
+                vel: { x: velocityX, y: velocityY }
+            };
+            balls.push(ball);
+
+            // Reset lineStart and lineEnd
+            lineStart = null;
+            lineEnd = null;
+        }
+
+    </script>
+</body>
+
+</html>
